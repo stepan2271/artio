@@ -15,11 +15,13 @@
  */
 package uk.co.real_logic.artio.engine.logger;
 
+import io.aeron.ControlledFragmentAssembler;
 import io.aeron.Image;
 import io.aeron.Subscription;
 import io.aeron.archive.client.AeronArchive;
 import io.aeron.archive.client.ArchiveException;
 import io.aeron.logbuffer.ControlledFragmentHandler;
+import io.aeron.logbuffer.FragmentHandler;
 import io.aeron.logbuffer.Header;
 import org.agrona.DirectBuffer;
 import org.agrona.ErrorHandler;
@@ -50,6 +52,7 @@ public class Indexer implements Agent, ControlledFragmentHandler
     private final Subscription subscription;
     private final String agentNamePrefix;
     private final CompletionPosition completionPosition;
+    private final ControlledFragmentHandler fragmentHandler;
 
     public Indexer(
         final List<Index> indices,
@@ -64,11 +67,12 @@ public class Indexer implements Agent, ControlledFragmentHandler
         this.agentNamePrefix = agentNamePrefix;
         this.completionPosition = completionPosition;
         catchIndexUp(aeronArchive, errorHandler);
+        fragmentHandler = new ControlledFragmentAssembler(this);
     }
 
     public int doWork()
     {
-        return subscription.controlledPoll(this, LIMIT) + CollectionUtil.sum(indices, Index::doWork);
+        return subscription.controlledPoll(fragmentHandler, LIMIT) + CollectionUtil.sum(indices, Index::doWork);
     }
 
     private void catchIndexUp(final AeronArchive aeronArchive, final ErrorHandler errorHandler)
